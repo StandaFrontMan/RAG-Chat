@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import path from "path";
 import { FastifyRequest } from "fastify";
 import { FastifyReply } from "fastify";
+import { authRoutes } from "./routes/auth.js";
 
 dotenv.config({ path: path.resolve(import.meta.dirname, "../../.env") });
 dotenv.config(); // также подхватит локальный .env, если появится
@@ -29,9 +30,11 @@ app.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply
 	try {
 		await request.jwtVerify();
 	} catch (error) {
-		reply.statusCode(401).send({ error: 'Unauthorized' })
+		reply.status(401).send({ error: 'Unauthorized' })
 	}
 })
+
+await app.register(authRoutes, {prefix: '/api/auth'})
 
 app.get('/health', async () => {
 	return {satus: 'ok'}
