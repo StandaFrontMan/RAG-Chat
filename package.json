@@ -1,0 +1,11 @@
+{
+  "name": "rag_chat_root",
+  "private": true,
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "cd server && bun run db:migrate",
+    "server": "cd server && bun dev",
+    "client": "cd client && bun dev"
+  }
+}
