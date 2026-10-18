@@ -19,11 +19,12 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
-  },
-  "include": ["src"],
+    "noFallthroughCasesInSwitch": true,
 
-	"paths": {
-  	"@/*": ["./src/*"]
-	}
+    /* Paths */
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
 }

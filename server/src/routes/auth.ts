@@ -63,7 +63,7 @@ export async function authRoutes(app: FastifyInstance) {
 		return {user: {id: user.id, email: user.email}, token}
 	})
 
-	app.get('/me', {onRequest: [app.authenticate]}, async (request: FastifyRequest) => {
+	app.get('/me', {onRequest: [app.authenticate]}, async (request: FastifyRequest, reply: FastifyReply) => {
 		const result = await query('SELECT id, email, created_at FROM users WHERE id = $1', [request.user.id]);
 		const user = result.rows[0];
 

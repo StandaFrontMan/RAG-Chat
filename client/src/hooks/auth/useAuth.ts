@@ -4,27 +4,28 @@ import { fetchMe, loginApi, logoutApi, registerApi } from "../../api/auth";
 import { useAbortSignal } from "../shared/useAbortSignal";
 
 export function useAuth() {
-	const queryClient = useQueryClient()
-	const navigate = useNavigate()
-	const nextLoginSignal = useAbortSignal();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const nextLoginSignal = useAbortSignal();
   const nextRegisterSignal = useAbortSignal();
 
-	const {data: user, isLoading} = useQuery({
-		queryKey: ['auth', 'me'],
-		queryFn: ({signal}) => fetchMe(signal),
-		staleTime: 1000 * 60 * 5
-	})
+  const { data: user, isLoading } = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: ({ signal }) => fetchMe(signal),
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  });
 
-	const loginMutation = useMutation({
+  const loginMutation = useMutation({
     mutationFn: (credentials: { email: string; password: string }) =>
       loginApi(credentials, nextLoginSignal()),
-		onSuccess: (data) => {
-			queryClient.setQueryData(['auth', 'me'], data.user)
-			navigate('/chat')
-		}
-	})
+    onSuccess: (data) => {
+      queryClient.setQueryData(['auth', 'me'], data.user);
+      navigate('/chat');
+    },
+  });
 
-	const registerMutation = useMutation({
+  const registerMutation = useMutation({
     mutationFn: (credentials: { email: string; password: string }) =>
       registerApi(credentials, nextRegisterSignal()),
     onSuccess: (data) => {
@@ -33,24 +34,27 @@ export function useAuth() {
     },
   });
 
-	const logoutMutation = useMutation({
+  const logoutMutation = useMutation({
     mutationFn: logoutApi,
     onSuccess: () => {
       queryClient.setQueryData(['auth', 'me'], null);
-      queryClient.clear(); // очищаем кэш чатов и заметок
+      queryClient.clear();
       navigate('/login');
     },
   });
 
-	return {
+  return {
     user,
     isLoading,
     login: loginMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     loginError: loginMutation.error?.message,
+    resetLoginError: loginMutation.reset,
     register: registerMutation.mutateAsync,
     isRegistering: registerMutation.isPending,
     registerError: registerMutation.error?.message,
+    resetRegisterError: registerMutation.reset,
     logout: logoutMutation.mutate,
+    isLoggingOut: logoutMutation.isPending,
   };
 }

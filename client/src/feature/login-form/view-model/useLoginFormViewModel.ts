@@ -3,7 +3,16 @@ import { useAuth } from "../../../hooks/auth/useAuth";
 import type { AuthMode, LoginFormValues } from "../model/types";
 
 export function useLoginFormViewModel() {
-  const { login, register, isLoggingIn, isRegistering, loginError, registerError } = useAuth();
+  const {
+    login,
+    register,
+    isLoggingIn,
+    isRegistering,
+    loginError,
+    registerError,
+    resetLoginError,
+    resetRegisterError,
+  } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [values, setValues] = useState<LoginFormValues>({ email: "", password: "" });
@@ -13,20 +22,28 @@ export function useLoginFormViewModel() {
 
   function handleChange(field: keyof LoginFormValues) {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (loginError) resetLoginError();
+      if (registerError) resetRegisterError();
       setValues((prev) => ({ ...prev, [field]: e.target.value }));
     };
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (mode === "login") {
-      await login(values);
-    } else {
-      await register(values);
+    try {
+      if (mode === "login") {
+        await login(values);
+      } else {
+        await register(values);
+      }
+    } catch {
+      // Handled by react-query mutation error state
     }
   }
 
   function toggleMode() {
+    resetLoginError();
+    resetRegisterError();
     setMode((prev) => (prev === "login" ? "register" : "login"));
   }
 

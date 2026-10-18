@@ -1,20 +1,29 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthPage } from './pages/auth-page';
-import { ChatPage } from './pages/chat-page';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthPage } from "./pages/auth-page";
+import { ChatPage } from "./pages/chat-page";
+import { ProtectedRoute } from "./components/protected-route";
+import { GuestRoute } from "./components/guest-route";
 
 function App() {
   return (
     <BrowserRouter>
-				<Routes>
-					<Route path="/login" element={<AuthPage />} />
-					<Route path="/chat" element={<ChatPage />} />
-					{/* По умолчанию перенаправляем на /chat */}
-					<Route path="/" element={<Navigate to="/chat" replace />} />
-					{/* Любой неизвестный адрес редиректим на корень */}
-					<Route path="*" element={<Navigate to="/" replace />} />
-				</Routes>
+      <Routes>
+        {/* Гостевой маршрут: доступен только неавторизованным */}
+        <Route element={<GuestRoute />}>
+          <Route path="/login" element={<AuthPage />} />
+        </Route>
+
+        {/* Защищенные маршруты: требуют авторизации */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/chat" element={<ChatPage />} />
+        </Route>
+
+        {/* Перенаправления по умолчанию */}
+        <Route path="/" element={<Navigate to="/chat" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;
