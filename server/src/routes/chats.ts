@@ -35,9 +35,44 @@ export async function chatsRoutes(app: FastifyInstance) {
 			return reply.status(401).send({error: 'Unauthorized'})
 		}
 
-		const result = await query('INSERT INTO chats (user_id, title) VALUES ($1, $2) RETURNING id, title, created_at', [user.id, title]);
+		const result = await query('INSERT INTO chats (user_id, title) VALUES ($1, $2) RETURNING id, title, created_at, updated_at', [user.id, title]);
 		const chat = result.rows[0];
 		return chat;
+	})
+
+	app.patch('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+		const { id } = request.params as { id: string };
+		const { title } = request.body as { title?: string };
+
+		if (!title || !title.trim()) {
+			return reply.status(400).send({ error: 'Title is required' });
+		}
+
+		const result = await query(
+			'UPDATE chats SET title = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 RETURNING id, title, created_at, updated_at',
+			[title.trim(), id, request.user.id]
+		);
+
+		if (result.rows.length === 0) {
+			return reply.status(404).send({ error: 'Chat not found' });
+		}
+
+		return result.rows[0];
+	})
+
+	app.delete('/:id', async (request: FastifyRequest, reply: FastifyReply) => {
+		const { id } = request.params as { id: string };
+
+		const result = await query(
+			'DELETE FROM chats WHERE id = $1 AND user_id = $2 RETURNING id',
+			[id, request.user.id]
+		);
+
+		if (result.rows.length === 0) {
+			return reply.status(404).send({ error: 'Chat not found' });
+		}
+
+		return { success: true, id };
 	})
 
 	app.get('/:id/messages', async (request: FastifyRequest, reply: FastifyReply) => {

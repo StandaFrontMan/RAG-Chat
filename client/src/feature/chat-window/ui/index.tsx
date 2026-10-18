@@ -1,27 +1,86 @@
 import { cn } from "cn";
-import { Bot, MessageSquare, Send, Sparkles } from "lucide-react";
+import { Bot, Check, MessageSquare, Pencil, Send, Sparkles, X } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import type { ChatWindowProps } from "../model/types";
 import { useChatWindowViewModel } from "../view-model/useChatWindowViewModel";
 
 export function ChatWindow({
   className,
-  chatTitle = "Новый диалог",
+  chatTitle: customChatTitle,
   onSendMessage,
   isLoading = false,
 }: ChatWindowProps) {
-  const { inputValue, handleChange, handleSubmit, handleKeyDown } = useChatWindowViewModel({
+  const {
+    inputValue,
+    chatTitle: vmChatTitle,
+    activeChat,
+    isEditingTitle,
+    editedTitle,
+    setEditedTitle,
+    startEditingTitle,
+    cancelEditingTitle,
+    saveTitle,
+    handleChange,
+    handleSubmit,
+    handleKeyDown,
+  } = useChatWindowViewModel({
     onSendMessage,
     isLoading,
   });
+
+  const displayTitle = customChatTitle || vmChatTitle;
 
   return (
     <main className={cn("flex flex-1 flex-col h-full min-w-0 bg-background", className)}>
       {/* Шапка чата */}
       <header className="flex h-14 items-center justify-between border-b border-border px-6 shrink-0">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          <h1 className="text-sm font-semibold tracking-tight">{chatTitle}</h1>
+        <div className="flex items-center gap-2 max-w-md">
+          <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+          {isEditingTitle ? (
+            <form onSubmit={saveTitle} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                autoFocus
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") cancelEditingTitle();
+                }}
+                className="rounded border border-primary/50 bg-background px-2 py-0.5 text-sm font-semibold outline-hidden text-foreground"
+              />
+              <button
+                type="submit"
+                className="rounded p-1 text-primary hover:bg-primary/10 cursor-pointer"
+                title="Сохранить"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={cancelEditingTitle}
+                className="rounded p-1 text-muted-foreground hover:bg-muted cursor-pointer"
+                title="Отмена"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </form>
+          ) : (
+            <div className="group flex items-center gap-2">
+              <h1 className="text-sm font-semibold tracking-tight truncate max-w-xs">
+                {displayTitle}
+              </h1>
+              {activeChat && (
+                <button
+                  type="button"
+                  onClick={startEditingTitle}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                  title="Изменить название"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

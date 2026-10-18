@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useChats } from "../../../hooks/chat/useChats";
 
 interface UseChatWindowViewModelParams {
   onSendMessage?: (text: string) => void;
@@ -10,6 +11,38 @@ export function useChatWindowViewModel({
   isLoading,
 }: UseChatWindowViewModelParams = {}) {
   const [inputValue, setInputValue] = useState("");
+  const { activeChat, renameChat } = useChats();
+
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState("");
+
+  const chatTitle = activeChat?.title || "Новый диалог";
+
+  function startEditingTitle() {
+    if (!activeChat) return;
+    setIsEditingTitle(true);
+    setEditedTitle(activeChat.title);
+  }
+
+  function cancelEditingTitle() {
+    setIsEditingTitle(false);
+    setEditedTitle("");
+  }
+
+  async function saveTitle(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (!activeChat) return;
+    const trimmed = editedTitle.trim();
+    if (!trimmed || trimmed === activeChat.title) {
+      cancelEditingTitle();
+      return;
+    }
+    try {
+      await renameChat(activeChat.id, trimmed);
+    } finally {
+      setIsEditingTitle(false);
+    }
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setInputValue(e.target.value);
@@ -33,6 +66,14 @@ export function useChatWindowViewModel({
 
   return {
     inputValue,
+    chatTitle,
+    activeChat,
+    isEditingTitle,
+    editedTitle,
+    setEditedTitle,
+    startEditingTitle,
+    cancelEditingTitle,
+    saveTitle,
     handleChange,
     handleSubmit,
     handleKeyDown,
