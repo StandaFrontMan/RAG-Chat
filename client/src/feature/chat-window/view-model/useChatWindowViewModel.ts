@@ -1,22 +1,31 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useChats } from "../../../hooks/chat/useChats";
+import { useChatMessages } from "../../../hooks/chat/useChatMessages";
 
-interface UseChatWindowViewModelParams {
-  onSendMessage?: (text: string) => void;
-  isLoading?: boolean;
-}
-
-export function useChatWindowViewModel({
-  onSendMessage,
-  isLoading,
-}: UseChatWindowViewModelParams = {}) {
+export function useChatWindowViewModel() {
   const [inputValue, setInputValue] = useState("");
-  const { activeChat, renameChat } = useChats();
+  const { activeChat, activeChatId, createChat, renameChat } = useChats();
+  const {
+    messages,
+    isLoadingMessages,
+    isStreaming,
+    streamingMessage,
+    streamError,
+    sendMessage,
+    stopStreaming,
+  } = useChatMessages({ chatId: activeChatId });
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
 
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
   const chatTitle = activeChat?.title || "Новый диалог";
+
+  // Автоскролл к низу переписки при обновлении сообщений или стриминге
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, streamingMessage?.content]);
 
   function startEditingTitle() {
     if (!activeChat) return;
@@ -48,13 +57,27 @@ export function useChatWindowViewModel({
     setInputValue(e.target.value);
   }
 
-  function handleSubmit(e?: React.FormEvent) {
+  async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     const trimmed = inputValue.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isStreaming) return;
 
-    onSendMessage?.(trimmed);
     setInputValue("");
+
+    try {
+      if (activeChatId) {
+        await sendMessage(trimmed, activeChatId);
+      } else {
+        // Если чат ещё не выбран, создаём его на основе первых слов вопроса
+        const chatSnippet = trimmed.length > 30 ? trimmed.slice(0, 30) + "..." : trimmed;
+        const newChat = await createChat(chatSnippet);
+        if (newChat?.id) {
+          await sendMessage(trimmed, newChat.id);
+        }
+      }
+    } catch {
+      // Ошибки перехватываются внутри useChatMessages
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -68,6 +91,13 @@ export function useChatWindowViewModel({
     inputValue,
     chatTitle,
     activeChat,
+    activeChatId,
+    messages,
+    isLoadingMessages,
+    isStreaming,
+    streamingMessage,
+    streamError,
+    messagesEndRef,
     isEditingTitle,
     editedTitle,
     setEditedTitle,
@@ -77,5 +107,6 @@ export function useChatWindowViewModel({
     handleChange,
     handleSubmit,
     handleKeyDown,
+    stopStreaming,
   };
 }

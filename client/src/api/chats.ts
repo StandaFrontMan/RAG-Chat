@@ -88,3 +88,73 @@ export async function fetchChatMessages(
 
   return data.messages || [];
 }
+
+export async function sendChatMessageStream(
+  chatId: string,
+  message: string,
+  callbacks: {
+    onSources?: (sources: NonNullable<ChatMessage["sources"]>) => void;
+    onChunk?: (chunk: string) => void;
+    onDone?: () => void;
+    onError?: (error: Error) => void;
+  },
+  signal?: AbortSignal
+): Promise<void> {
+  const res = await fetch(`/api/chats/${chatId}/message`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    credentials: "include",
+    signal,
+    body: JSON.stringify({ message }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to send message");
+  }
+
+  if (!res.body) {
+    throw new Error("No response body received from server");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() || "";
+
+      for (const block of blocks) {
+        const line = block.trim();
+        if (!line.startsWith("data:")) continue;
+        const jsonStr = line.replace(/^data:\s*/, "");
+        if (!jsonStr) continue;
+
+        try {
+          const payload = JSON.parse(jsonStr);
+          if (payload.type === "sources") {
+            callbacks.onSources?.(payload.sources);
+          } else if (payload.type === "chunk") {
+            callbacks.onChunk?.(payload.text);
+          } else if (payload.type === "done") {
+            callbacks.onDone?.();
+          }
+        } catch (e) {
+          console.error("Failed to parse SSE payload", jsonStr, e);
+        }
+      }
+    }
+  } catch (err: any) {
+    if (signal?.aborted) return;
+    const error = err instanceof Error ? err : new Error(String(err));
+    callbacks.onError?.(error);
+    throw error;
+  }
+}
+
