@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../hooks/auth/useAuth";
 import { useChats } from "../../../hooks/chat/useChats";
 import type { Chat } from "../../../types/chat/types";
 
 export function useChatSidebarViewModel() {
+  const navigate = useNavigate();
   const { user, logout, isLoggingOut } = useAuth();
   const {
     chats,
@@ -88,5 +90,6 @@ export function useChatSidebarViewModel() {
     cancelRenaming,
     saveRenaming,
     handleDeleteChat,
+    navigateToDocuments: () => navigate("/documents"),
   };
 }

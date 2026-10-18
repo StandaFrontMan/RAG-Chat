@@ -33,6 +33,7 @@ export function ChatSidebar({ className, onOpenKnowledgeBase }: ChatSidebarProps
     cancelRenaming,
     saveRenaming,
     handleDeleteChat,
+    navigateToDocuments,
   } = useChatSidebarViewModel();
 
   return (
@@ -189,7 +190,7 @@ export function ChatSidebar({ className, onOpenKnowledgeBase }: ChatSidebarProps
         <Button
           variant="ghost"
           size="sm"
-          onClick={onOpenKnowledgeBase}
+          onClick={onOpenKnowledgeBase || navigateToDocuments}
           className="w-full justify-start gap-2 text-xs font-normal cursor-pointer"
         >
           <Database className="h-4 w-4 text-muted-foreground" />
