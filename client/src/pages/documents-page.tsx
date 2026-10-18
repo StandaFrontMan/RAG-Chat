@@ -1,11 +1,25 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, BookOpen, Database, LogOut, Plus, User as UserIcon } from "lucide-react";
+import { ArrowLeft, Database, LogOut, Plus, User as UserIcon } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../hooks/auth/useAuth";
+import { useDocuments } from "../hooks/document/useDocuments";
+import { DocumentCreateDialog, DocumentsList } from "../feature/documents";
 
 export function DocumentsPage() {
   const navigate = useNavigate();
   const { user, logout, isLoggingOut } = useAuth();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const {
+    documents,
+    totalCount,
+    searchQuery,
+    setSearchQuery,
+    isLoading,
+    createDocument,
+    deleteDocument,
+  } = useDocuments();
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background text-foreground">
@@ -59,27 +73,36 @@ export function DocumentsPage() {
           <div>
             <h2 className="text-xl font-bold tracking-tight">Ваши заметки и документы</h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Все добавленные материалы автоматически векторизуются моделью Gemini и служат источниками для ответов в чате.
+              Все добавленные материалы автоматически векторизуются моделью Gemini (768d) и служат источниками для RAG-ответов в чате.
             </p>
           </div>
 
-          <Button size="sm" className="gap-2 cursor-pointer shrink-0">
+          <Button
+            size="sm"
+            onClick={() => setIsCreateOpen(true)}
+            className="gap-2 cursor-pointer shrink-0"
+          >
             <Plus className="h-4 w-4" />
             Добавить документ
           </Button>
         </div>
 
-        {/* Заглушка списка заметок */}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-3">
-            <BookOpen className="h-6 w-6 stroke-1" />
-          </div>
-          <h3 className="text-sm font-semibold text-foreground">Документов пока нет</h3>
-          <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-4">
-            Добавьте текстовые заметки, инструкции или регламенты, чтобы нейросеть могла отвечать на ваши вопросы на их основе.
-          </p>
-        </div>
+        <DocumentsList
+          documents={documents}
+          totalCount={totalCount}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isLoading={isLoading}
+          onDelete={deleteDocument}
+          onOpenCreate={() => setIsCreateOpen(true)}
+        />
       </main>
+
+      <DocumentCreateDialog
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSubmit={createDocument}
+      />
     </div>
   );
 }
