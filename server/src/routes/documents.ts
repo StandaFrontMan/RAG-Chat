@@ -71,7 +71,7 @@ export async function documentsRoutes(app: FastifyInstance) {
 			`SELECT 
 				d1.id AS source,
 				d2.id AS target,
-				ROUND((1 - (d1.embedding <=> d2.embedding))::numeric, 4))::float AS similarity
+				(ROUND((1 - (d1.embedding <=> d2.embedding))::numeric, 4))::float AS similarity
 			FROM documents d1
 			JOIN documents d2 
 				ON d1.user_id = d2.user_id 
