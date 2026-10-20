@@ -58,4 +58,33 @@ export async function documentsRoutes(app: FastifyInstance) {
 
 		return result.rows
 	})
+
+	app.get('/graph', async (request: FastifyRequest, reply: FastifyReply) => {
+		const { threshold = '0.5' } = request.query as {threshold?: string}
+		const simThreshold = parseFloat(threshold) || 0.5
+
+		// 1. Получаем все документы пользователя (ноды графа)
+		const nodesResult = await query('SELECT id, title, content, created_at, updated_at FROM documents WHERE user_id = $1 ORDER BY created_at DESC', [request.user.id]);
+
+		// 2. Ищем семантические связи между парами документов через pgvector
+		const linksResult = await query(
+			`SELECT 
+				d1.id AS source,
+				d2.id AS target,
+				ROUND((1 - (d1.embedding <=> d2.embedding))::numeric, 4))::float AS similarity
+			FROM documents d1
+			JOIN documents d2 
+				ON d1.user_id = d2.user_id 
+			   AND d1.id < d2.id
+			WHERE d1.user_id = $1
+			  AND (1 - (d1.embedding <=> d2.embedding)) >= $2
+			ORDER BY similarity DESC`,
+			[request.user.id, simThreshold]
+		);
+
+		return {
+			nodes: nodesResult.rows,
+			links: linksResult.rows
+		}
+	})
 }
