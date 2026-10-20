@@ -2,7 +2,7 @@ import { FastifyRequest } from "fastify";
 import { FastifyReply } from "fastify";
 import { FastifyInstance } from "fastify";
 import { query } from "../db/index.js";
-import { generateRAGStream, getEmbedding } from "../services/ai.js";
+import { generateRAGStream, getEmbedding, shouldRetrieveContext } from "../services/ai.js";
 
 export async function chatsRoutes(app: FastifyInstance) {
 	app.addHook('onRequest', app.authenticate);
@@ -106,12 +106,17 @@ export async function chatsRoutes(app: FastifyInstance) {
   	// 1. Сохраняем сообщение пользователя в SQL
 		await query('INSERT INTO messages (chat_id, role, content) VALUES ($1, $2, $3)', [chatId, 'user', message])
 
-		// 2. RAG: получаем эмбеддинг вопроса и ищем топ-3 релевантных документа
-		const queryVector = await getEmbedding(message);
-		const ragResult = await query('SELECT id, title, content, 1 - (embedding <=> $1::vector) AS similarity FROM documents WHERE user_id = $2 ORDER BY embedding <=> $1::vector LIMIT 3', [JSON.stringify(queryVector), request.user.id])
+		// 2. CAG (Context Awareness Gate): проверяем, нужен ли вообще контекст
+		const needContext = await shouldRetrieveContext(message);
 
-		// Фильтруем только достаточно похожие заметки (например, similarity > 0.5)
-		const relevantDocs = ragResult.rows.filter(doc => doc.similarity > 0.5)
+		let relevantDocs: any[] = [];
+
+		if (needContext) {
+			const queryVector = await getEmbedding(message)
+			const ragResult = await query('SELECT id, title, content, 1 - (embedding <=> $1::vector) AS similarity FROM documents WHERE user_id = $2 ORDER BY embedding <=> $1::vector LIMIT 3', [JSON.stringify(queryVector), request.user.id]);
+
+			relevantDocs = ragResult.rows.filter(doc => doc.similarity > 0.5)
+		}
 
 		// 3. Вызываем Gemini со стримингом
 		const stream = await generateRAGStream(message, relevantDocs)
