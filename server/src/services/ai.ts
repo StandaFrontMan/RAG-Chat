@@ -19,20 +19,31 @@ export async function getEmbedding(text: string): Promise<number[]> {
   return values;
 }
 
-export async function generateRAGStream(userQuery: string, contextDocuments: {title: string, content: string}[]) {
-	// 1. Формируем контекст из найденных заметок
-	const contextText = contextDocuments.length > 0
-    ? contextDocuments.map((doc, i) => `[Документ ${i + 1}] "${doc.title}":\n${doc.content}`).join('\n\n')
-    : 'В базе знаний нет релевантных заметок.';
+export async function generateRAGStream(
+	userQuery: string,
+	contextDocuments: {title: string, content: string}[],
+	isContextRetrieved: boolean = true
+) {
+	let systemInstruction = 'Ты персональный AI-ассистент пользователя.'
 
-  // 2. Системный промпт с правилами
-  const systemInstruction = `Ты персональный AI-ассистент базы знаний пользователя.
-		Твоя задача — ответить на вопрос пользователя, опираясь в первую очередь на предоставленный контекст из его заметок.
-		Если в контексте есть нужный ответ, обязательно упомяни название документа или процитируй его.
-		Если в контексте нет информации, ответь на основе своих общих знаний, но вежливо предупреди, что в базе знаний этого не найдено.
-		КОНТЕКСТ ИЗ БАЗЫ ЗНАНИЙ:
-		${contextText}`;
+	if(!isContextRetrieved) {
+		// Сценарий 1: Smalltalk / общение без базы знаний
+    systemInstruction += `Отвечай кратко, естественно и вежливо на общие темы или приветствия. Не упоминай базу знаний или заметки, если пользователь сам прямо о них не спрашивает.`;
+	} else if (contextDocuments.length === 0) {
+		// Сценарий 2: Поиск был, но ничего не найдено
+    systemInstruction += `Пользователь задал предметный вопрос, но в его базе заметок ничего подходящего не нашлось. Ответь на основе своих общих знаний, но в начале кратко предупреди, что в личных заметках информации по этому поводу нет.`;
+	} else {
+		// Сценарий 3: Документы найдены
+    const contextText = contextDocuments
+      .map((doc, i) => `[Документ ${i + 1}] "${doc.title}":\n${doc.content}`)
+      .join('\n\n');
 
+    systemInstruction += `
+			Опирайся в первую очередь на предоставленный контекст из заметок пользователя.
+			Обязательно упомяни название документа или процитируй важные детали.
+			КОНТЕКСТ: ${contextText}`;
+	}
+		
 	// 3. Запускаем стриминг
 	const responseStream = await ai.models.generateContentStream({
 		model: 'gemini-3.1-flash-lite',
@@ -53,7 +64,7 @@ export async function shouldRetrieveContext(query: string): Promise<boolean> {
 	const trimmed = query.trim().toLowerCase();
 
 	// 1. Быстрый фильтр на базовую вежливость и короткие фразы (0ms latency)
-	const smallTalkRegex = /^(привет|здравствуй|добрый (день|вечер|утро)|хай|ку|пока|до свидания|спасибо|благодарю|отлично|понятно|ок|ладно|ясно|hi|hello|hey|thanks|thank you)[\s!.,?]*$/i;
+	const smallTalkRegex = /^(?:(привет|здравствуй|добрый (день|вечер|утро)|хай|ку|пока|до свидания|спасибо|благодарю|отлично|понятно|ок|ладно|ясно|hi|hello|hey|thanks|thank you)[\s!.,?-]*)+$/i;
 	if (smallTalkRegex.test(trimmed)) {
 		return false
 	}
@@ -69,7 +80,7 @@ export async function shouldRetrieveContext(query: string): Promise<boolean> {
 			Вопрос: "${query}"`;
 
 		const response = await ai.models.generateContent({
-			model: 'gemini-2.0-flash-lite',
+			model: 'gemini-3.5-flash-lite',
 			contents: prompt
 		})
 

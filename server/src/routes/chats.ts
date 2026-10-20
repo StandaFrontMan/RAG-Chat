@@ -115,36 +115,43 @@ export async function chatsRoutes(app: FastifyInstance) {
 			const queryVector = await getEmbedding(message)
 			const ragResult = await query('SELECT id, title, content, 1 - (embedding <=> $1::vector) AS similarity FROM documents WHERE user_id = $2 ORDER BY embedding <=> $1::vector LIMIT 3', [JSON.stringify(queryVector), request.user.id]);
 
-			relevantDocs = ragResult.rows.filter(doc => doc.similarity > 0.5)
+			relevantDocs = ragResult.rows.filter(doc => doc.similarity > 0.68)
 		}
 
 		// 3. Вызываем Gemini со стримингом
-		const stream = await generateRAGStream(message, relevantDocs)
+		const stream = await generateRAGStream(message, relevantDocs, needContext)
 
-		// 4. Открываем SSE (Server-Sent Events) соединение
 		reply.raw.writeHead(200, {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			'Connection': 'keep-alive'
-		})
+  			'Content-Type': 'text/event-stream',
+  			'Cache-Control': 'no-cache',
+  			'Connection': 'keep-alive'
+		});
 
-		// Отправляем клиенту информацию об использованных источниках первым событием!
-		reply.raw.write(`data: ${JSON.stringify({type: 'sources', sources: relevantDocs})}\n\n`)
+		try {
+			reply.raw.write(`data: ${JSON.stringify({ type: 'sources', sources: relevantDocs })}\n\n`);
 
-		let fullAiResponse = '';
+			let fullAiResponse = '';
 
-		// 5. Транслируем чанки в реальном времени
-		for await (const chunk of stream) {
-			const textChunk = chunk.text || '';
-			fullAiResponse += textChunk;
-			reply.raw.write(`data: ${JSON.stringify({type: 'chunk', text: textChunk})}\n\n`)
+			for await (const chunk of stream) {
+    		const textChunk = chunk.text || '';
+    		fullAiResponse += textChunk;
+    		reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
+  		}
+
+			await query('INSERT INTO messages (chat_id, role, content, sources) VALUES ($1, $2, $3, $4)', [
+    		chatId,
+    		'assistant',
+    		fullAiResponse,
+    		JSON.stringify(relevantDocs)
+  		]);
+
+			reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+		} catch (error) {
+			const errorMsg = 'Модель временно перегружена. Пожалуйста, попробуйте еще раз через несколько секунд.';
+  		reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: errorMsg })}\n\n`);
+  		reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+		} finally {
+			reply.raw.end();
 		}
-
-		// 6. Сохраняем финальный ответ модели в SQL
-		await query('INSERT INTO messages (chat_id, role, content, sources) VALUES ($1, $2, $3, $4)', [chatId, 'assistant', fullAiResponse, JSON.stringify(relevantDocs)])
-
-		// Завершаем SSE стрим
-		reply.raw.write(`data: ${JSON.stringify({type: 'done'})}\n\n`)
-		reply.raw.end()
 	})
 }
