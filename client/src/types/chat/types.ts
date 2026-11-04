@@ -11,6 +11,7 @@ export interface ChatMessageSource {
   content: string;
   similarity?: number;
   isCreated?: boolean;
+  isUpdated?: boolean;
 }
 
 export interface ChatMessage {

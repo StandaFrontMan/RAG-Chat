@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { createDocumentTool } from "./tools.js";
+import { createDocumentTool, updateDocumentTool } from "./tools.js";
 
 export const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY})
 
@@ -22,28 +22,33 @@ export async function getEmbedding(text: string): Promise<number[]> {
 
 export async function generateRAGStream(
   userQuery: string,
-  contextDocuments: { title: string; content: string }[],
+  contextDocuments: { id?: string; title: string; content: string }[],
   isContextRetrieved: boolean = true
 ) {
   let systemInstruction = 'Ты персональный AI-ассистент пользователя.';
 
   if (!isContextRetrieved) {
-    systemInstruction += ` Отвечай естественно и вежливо. Если пользователь явно просит сохранить, записать, запомнить или добавить заметку/документ — обязательно используй инструмент createDocument.`;
+    systemInstruction += ` Отвечай естественно и вежливо. 
+Если пользователь явно просит сохранить или создать новую заметку/документ — используй инструмент createDocument.
+Если пользователь просит дополнить, изменить или обновить существующую заметку — используй инструмент updateDocument.`;
   } else if (contextDocuments.length === 0) {
-    systemInstruction += ` Пользователь задал предметный вопрос, но в его базе заметок ничего подходящего не нашлось. Ответь на основе своих общих знаний, но в начале кратко предупреди, что в личных заметках информации нет. Если просят что-то сохранить — используй инструмент createDocument.`;
+    systemInstruction += ` Пользователь задал предметный вопрос, но в его базе заметок ничего подходящего не нашлось. Ответь на основе своих общих знаний, но в начале кратко предупреди, что в личных заметках информации нет.
+Если просят создать новую заметку — используй createDocument. Если просят изменить/дополнить — используй updateDocument.`;
   } else {
     const contextText = contextDocuments
-      .map((doc, i) => `[Документ ${i + 1}] "${doc.title}":\n${doc.content}`)
+      .map((doc, i) => `[Документ ${i + 1}] (ID: ${doc.id || 'unknown'}) "${doc.title}":\n${doc.content}`)
       .join('\n\n');
 
     systemInstruction += `
-			Опирайся в первую очередь на предоставленный контекст из заметок пользователя.
-			Обязательно упомяни название документа или процитируй важные детали.
-			КОНТЕКСТ:
-			${contextText}
-			Если пользователь просит создать или сохранить новую заметку — используй инструмент createDocument.`;
-  	}
-	
+Опирайся в первую очередь на предоставленный контекст из заметок пользователя.
+Обязательно упомяни название документа или процитируй важные детали.
+КОНТЕКСТ:
+${contextText}
+
+Если пользователь просит создать или сохранить новую заметку — используй инструмент createDocument.
+Если пользователь просит дополнить, изменить или обновить существующую заметку — используй инструмент updateDocument (передавай ID из контекста, если он там указан).`;
+  }
+
   // Запускаем стриминг с поддержкой инструментов
   const responseStream = await ai.models.generateContentStream({
     model: 'gemini-3.1-flash-lite',
@@ -54,13 +59,12 @@ export async function generateRAGStream(
       },
     ],
     config: {
-      tools: [{ functionDeclarations: [createDocumentTool] }],
+      tools: [{ functionDeclarations: [createDocumentTool, updateDocumentTool] }],
     },
   });
 
   return responseStream;
 }
-
 
 /**
  * Отправляет результат выполнения инструмента назад в Gemini, 
@@ -89,6 +93,9 @@ export async function generateToolFollowUpStream(
         ],
       },
     ],
+    config: {
+      tools: [{ functionDeclarations: [createDocumentTool, updateDocumentTool] }],
+    },
   });
 }
 

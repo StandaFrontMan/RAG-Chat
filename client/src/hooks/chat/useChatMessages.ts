@@ -14,7 +14,8 @@ export function useChatMessages({ chatId }: UseChatMessagesParams) {
   const [streamingMessage, setStreamingMessage] = useState<{
     content: string;
     sources: ChatMessageSource[];
-		createdDocument?: { id: string; title: string; content: string } | null; 
+    createdDocument?: { id: string; title: string; content: string } | null;
+    updatedDocument?: { id: string; title: string; content: string } | null;
   } | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -63,13 +64,15 @@ export function useChatMessages({ chatId }: UseChatMessagesParams) {
             setStreamingMessage((prev) => ({
               content: prev?.content || "",
               sources: sources || [],
-							createdDocument: prev?.createdDocument,
+              createdDocument: prev?.createdDocument,
+              updatedDocument: prev?.updatedDocument,
             }));
           },
           onChunk: (chunk) => {
             setStreamingMessage((prev) => ({
               sources: prev?.sources || [],
-							createdDocument: prev?.createdDocument,
+              createdDocument: prev?.createdDocument,
+              updatedDocument: prev?.updatedDocument,
               content: (prev?.content || "") + chunk,
             }));
           },
@@ -83,18 +86,29 @@ export function useChatMessages({ chatId }: UseChatMessagesParams) {
             setIsStreaming(false);
             setStreamingMessage(null);
           },
-					onToolCall: (toolCall) => {
-						if (toolCall.tool === 'createDocument') {
-							setStreamingMessage((prev) => ({
-								content: prev?.content || "",
-								sources: prev?.sources || [],
-								createdDocument: toolCall.document
-							}));
+          onToolCall: (toolCall) => {
+            if (toolCall.tool === "createDocument") {
+              setStreamingMessage((prev) => ({
+                content: prev?.content || "",
+                sources: prev?.sources || [],
+                createdDocument: toolCall.document,
+                updatedDocument: null,
+              }));
 
-							queryClient.invalidateQueries({ queryKey: ["documents"] });
-							queryClient.invalidateQueries({ queryKey: ["graph"] })
-						}
-					}
+              queryClient.invalidateQueries({ queryKey: ["documents"] });
+              queryClient.invalidateQueries({ queryKey: ["graph"] });
+            } else if (toolCall.tool === "updateDocument") {
+              setStreamingMessage((prev) => ({
+                content: prev?.content || "",
+                sources: prev?.sources || [],
+                updatedDocument: toolCall.document,
+                createdDocument: null,
+              }));
+
+              queryClient.invalidateQueries({ queryKey: ["documents"] });
+              queryClient.invalidateQueries({ queryKey: ["graph"] });
+            }
+          },
         },
         controller.signal
       );

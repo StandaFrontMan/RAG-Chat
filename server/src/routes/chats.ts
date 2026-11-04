@@ -8,7 +8,7 @@ import {
   getEmbedding,
   shouldRetrieveContext,
 } from "../services/ai.js";
-import { executeCreateDocument } from "../services/tools.js";
+import { executeCreateDocument, executeUpdateDocument } from "../services/tools.js";
 
 export async function chatsRoutes(app: FastifyInstance) {
 	app.addHook('onRequest', app.authenticate);
@@ -138,18 +138,19 @@ export async function chatsRoutes(app: FastifyInstance) {
 
 			let fullAiResponse = '';
 			let createdDoc: any = null;
+			let updatedDoc: any = null;
 
 			for await (const chunk of stream) {
 				// 1. Проверяем, решила ли модель вызвать инструмент
 				if (chunk.functionCalls && chunk.functionCalls.length > 0) {
 					const call = chunk.functionCalls[0];
+
 					if (call.name === 'createDocument') {
-						// Исполняем создание заметки в PostgreSQL
+						// Создание заметки
 						createdDoc = await executeCreateDocument(
 							request.user.id,
 							call.args as { title?: string; content?: string }
 						);
-						// Отправляем SSE-событие на клиент
 						reply.raw.write(
 							`data: ${JSON.stringify({
 								type: 'tool_call',
@@ -157,12 +158,35 @@ export async function chatsRoutes(app: FastifyInstance) {
 								document: createdDoc,
 							})}\n\n`
 						);
-						// Запрашиваем у Gemini вежливое текстовое подтверждение
 						const followUpStream = await generateToolFollowUpStream(
 							message,
 							chunk.candidates?.[0]?.content,
 							call.name,
 							{ success: true, document: createdDoc }
+						);
+						for await (const followChunk of followUpStream) {
+							const textChunk = followChunk.text || '';
+							fullAiResponse += textChunk;
+							reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
+						}
+					} else if (call.name === 'updateDocument') {
+						// Обновление существующей заметки
+						updatedDoc = await executeUpdateDocument(
+							request.user.id,
+							call.args as { id?: string; title?: string; content?: string }
+						);
+						reply.raw.write(
+							`data: ${JSON.stringify({
+								type: 'tool_call',
+								tool: 'updateDocument',
+								document: updatedDoc,
+							})}\n\n`
+						);
+						const followUpStream = await generateToolFollowUpStream(
+							message,
+							chunk.candidates?.[0]?.content,
+							call.name,
+							{ success: true, document: updatedDoc }
 						);
 						for await (const followChunk of followUpStream) {
 							const textChunk = followChunk.text || '';
@@ -178,9 +202,13 @@ export async function chatsRoutes(app: FastifyInstance) {
 				}
 			}
 
-			const messageSources = createdDoc
-				? [...relevantDocs, { ...createdDoc, isCreated: true }]
-				: relevantDocs;
+			const messageSources = [...relevantDocs];
+			if (createdDoc) {
+				messageSources.push({ ...createdDoc, isCreated: true });
+			}
+			if (updatedDoc) {
+				messageSources.push({ ...updatedDoc, isUpdated: true });
+			}
 
 			await query('INSERT INTO messages (chat_id, role, content, sources) VALUES ($1, $2, $3, $4)', [
     		chatId,

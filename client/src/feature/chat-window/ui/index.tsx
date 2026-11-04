@@ -148,7 +148,8 @@ export function ChatWindow({ className }: ChatWindowProps) {
               }
 
               const createdSource = msg.sources?.find((s) => s.isCreated);
-              const ragSources = msg.sources?.filter((s) => !s.isCreated);
+              const updatedSource = msg.sources?.find((s) => s.isUpdated);
+              const ragSources = msg.sources?.filter((s) => !s.isCreated && !s.isUpdated);
 
               return (
                 <div key={msg.id} className="flex items-start gap-3 max-w-[85%]">
@@ -157,7 +158,10 @@ export function ChatWindow({ className }: ChatWindowProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     {createdSource && (
-                      <CreatedDocumentCard document={createdSource} />
+                      <CreatedDocumentCard document={createdSource} variant="created" />
+                    )}
+                    {updatedSource && (
+                      <CreatedDocumentCard document={updatedSource} variant="updated" />
                     )}
                     <div className="rounded-2xl rounded-tl-xs border border-border bg-card px-4 py-3 text-sm text-card-foreground shadow-xs leading-relaxed whitespace-pre-wrap">
                       {msg.content}
@@ -178,7 +182,10 @@ export function ChatWindow({ className }: ChatWindowProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   {streamingMessage.createdDocument && (
-                    <CreatedDocumentCard document={streamingMessage.createdDocument} />
+                    <CreatedDocumentCard document={streamingMessage.createdDocument} variant="created" />
+                  )}
+                  {streamingMessage.updatedDocument && (
+                    <CreatedDocumentCard document={streamingMessage.updatedDocument} variant="updated" />
                   )}
                   <div className="rounded-2xl rounded-tl-xs border border-border bg-card px-4 py-3 text-sm text-card-foreground shadow-xs leading-relaxed whitespace-pre-wrap">
                     {streamingMessage.content ? (
