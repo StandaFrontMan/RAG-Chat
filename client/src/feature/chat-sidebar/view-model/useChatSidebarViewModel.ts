@@ -91,5 +91,6 @@ export function useChatSidebarViewModel() {
     saveRenaming,
     handleDeleteChat,
     navigateToDocuments: () => navigate("/documents"),
+    navigateToGraph: () => navigate("/graph"),
   };
 }

@@ -1,20 +1,31 @@
 import { fetchGraphData } from "@/api/documents";
 import type { GraphData } from "@/api/types";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 export function useGraphData(initialThreshold: number = 0.5) {
-	const [threshold, setThreshold] = useState(initialThreshold)
+	const [threshold, setThreshold] = useState(initialThreshold);
+	const [debouncedThreshold, setDebouncedThreshold] = useState(initialThreshold);
+
+	// Дебаунс 250ms, чтобы не спамить сеть и сервер запросами при движении ползунка
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedThreshold(threshold);
+		}, 250);
+		return () => clearTimeout(timer);
+	}, [threshold]);
 
 	const {
-		data = {nodes: [], links: []},
+		data = { nodes: [], links: [] },
 		isLoading,
+		isFetching,
 		isError,
 		error,
-		refetch
+		refetch,
 	} = useQuery<GraphData>({
-		queryKey: ['graph', threshold],
-		queryFn: ({signal}) => fetchGraphData(threshold, signal),
+		queryKey: ["graph", debouncedThreshold],
+		queryFn: ({ signal }) => fetchGraphData(debouncedThreshold, signal),
+		placeholderData: keepPreviousData,
 		staleTime: 1000 * 60 * 2, // 2 mins
 	});
 
@@ -24,8 +35,9 @@ export function useGraphData(initialThreshold: number = 0.5) {
 		threshold,
 		setThreshold,
 		isLoading,
+		isFetching,
 		isError,
 		error: error?.message,
-		refetch
-	}
+		refetch,
+	};
 }

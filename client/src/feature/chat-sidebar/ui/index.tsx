@@ -5,6 +5,7 @@ import {
   Database,
   LogOut,
   MessageSquare,
+  Network,
   Pencil,
   Plus,
   Trash2,
@@ -34,6 +35,7 @@ export function ChatSidebar({ className, onOpenKnowledgeBase }: ChatSidebarProps
     saveRenaming,
     handleDeleteChat,
     navigateToDocuments,
+    navigateToGraph,
   } = useChatSidebarViewModel();
 
   return (
@@ -185,15 +187,25 @@ export function ChatSidebar({ className, onOpenKnowledgeBase }: ChatSidebarProps
         )}
       </div>
 
-      {/* Футер: База знаний и Профиль */}
-      <div className="border-t border-border p-3 space-y-2 bg-card/20">
+      {/* Футер: База знаний, Граф памяти и Профиль */}
+      <div className="border-t border-border p-3 space-y-1.5 bg-card/20">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={navigateToGraph}
+          className="w-full justify-start gap-2 text-xs font-normal cursor-pointer text-muted-foreground hover:text-foreground"
+        >
+          <Network className="h-4 w-4 text-indigo-400" />
+          Граф памяти (Knowledge Graph)
+        </Button>
+
         <Button
           variant="ghost"
           size="sm"
           onClick={onOpenKnowledgeBase || navigateToDocuments}
-          className="w-full justify-start gap-2 text-xs font-normal cursor-pointer"
+          className="w-full justify-start gap-2 text-xs font-normal cursor-pointer text-muted-foreground hover:text-foreground"
         >
-          <Database className="h-4 w-4 text-muted-foreground" />
+          <Database className="h-4 w-4" />
           База знаний (Документы)
         </Button>
 
