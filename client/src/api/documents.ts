@@ -1,4 +1,5 @@
 import type { CreateDocumentDto, Document } from "../types/document/types";
+import type { GraphData } from "./types";
 
 const JSON_HEADERS = new Headers({
   "Content-Type": "application/json",
@@ -66,6 +67,24 @@ export async function searchDocuments(
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || "Failed to search documents");
+  }
+
+  return res.json();
+}
+
+
+export async function fetchGraphData(
+  threshold: number = 0.5,
+  signal?: AbortSignal
+): Promise<GraphData> {
+  const res = await fetch(`/api/documents/graph?threshold=${threshold}`, {
+    credentials: "include",
+    signal,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to fetch graph data");
   }
 
   return res.json();

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Database, LogOut, Plus, User as UserIcon } from "lucide-react";
+import { ArrowLeft, Database, LogOut, Network, Plus, User as UserIcon } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../hooks/auth/useAuth";
 import { useDocuments } from "../hooks/document/useDocuments";
@@ -46,6 +46,18 @@ export function DocumentsPage() {
               <h1 className="text-sm font-semibold tracking-tight">База знаний (RAG)</h1>
             </div>
           </div>
+
+          <div className="h-4 w-px bg-border" />
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/graph")}
+            className="gap-2 text-xs font-medium cursor-pointer text-muted-foreground hover:text-foreground"
+          >
+            <Network className="h-4 w-4 text-indigo-400" />
+            Граф памяти
+          </Button>
         </div>
 
         <div className="flex items-center gap-3">

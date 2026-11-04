@@ -4,6 +4,7 @@ import { ChatPage } from "./pages/chat-page";
 import { DocumentsPage } from "./pages/documents-page";
 import { ProtectedRoute } from "./components/protected-route";
 import { GuestRoute } from "./components/guest-route";
+import { GraphPage } from "./pages/graph-page";
 
 function App() {
   return (
@@ -17,7 +18,10 @@ function App() {
         {/* Защищенные маршруты: требуют авторизации */}
         <Route element={<ProtectedRoute />}>
           <Route path="/chat" element={<ChatPage />} />
+
           <Route path="/documents" element={<DocumentsPage />} />
+
+					<Route path="/graph" element={<GraphPage />} />
         </Route>
 
         {/* Перенаправления по умолчанию */}
