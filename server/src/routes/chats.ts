@@ -2,7 +2,13 @@ import { FastifyRequest } from "fastify";
 import { FastifyReply } from "fastify";
 import { FastifyInstance } from "fastify";
 import { query } from "../db/index.js";
-import { generateRAGStream, getEmbedding, shouldRetrieveContext } from "../services/ai.js";
+import {
+  generateRAGStream,
+  generateToolFollowUpStream,
+  getEmbedding,
+  shouldRetrieveContext,
+} from "../services/ai.js";
+import { executeCreateDocument } from "../services/tools.js";
 
 export async function chatsRoutes(app: FastifyInstance) {
 	app.addHook('onRequest', app.authenticate);
@@ -133,10 +139,43 @@ export async function chatsRoutes(app: FastifyInstance) {
 			let fullAiResponse = '';
 
 			for await (const chunk of stream) {
-    		const textChunk = chunk.text || '';
-    		fullAiResponse += textChunk;
-    		reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
-  		}
+				// 1. Проверяем, решила ли модель вызвать инструмент
+				if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+					const call = chunk.functionCalls[0];
+					if (call.name === 'createDocument') {
+						// Исполняем создание заметки в PostgreSQL
+						const createdDoc = await executeCreateDocument(
+							request.user.id,
+							call.args as { title?: string; content?: string }
+						);
+						// Отправляем SSE-событие на клиент
+						reply.raw.write(
+							`data: ${JSON.stringify({
+								type: 'tool_call',
+								tool: 'createDocument',
+								document: createdDoc,
+							})}\n\n`
+						);
+						// Запрашиваем у Gemini вежливое текстовое подтверждение
+						const followUpStream = await generateToolFollowUpStream(
+							message,
+							chunk.candidates?.[0]?.content,
+							call.name,
+							{ success: true, document: createdDoc }
+						);
+						for await (const followChunk of followUpStream) {
+							const textChunk = followChunk.text || '';
+							fullAiResponse += textChunk;
+							reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
+						}
+					}
+				} else {
+					// 2. Обычный текстовый ответ (диалог или RAG)
+					const textChunk = chunk.text || '';
+					fullAiResponse += textChunk;
+					reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
+				}
+			}
 
 			await query('INSERT INTO messages (chat_id, role, content, sources) VALUES ($1, $2, $3, $4)', [
     		chatId,
