@@ -12,6 +12,7 @@ export interface ChatMessageSource {
   similarity?: number;
   isCreated?: boolean;
   isUpdated?: boolean;
+  isDeleted?: boolean;
 }
 
 export interface ChatMessage {

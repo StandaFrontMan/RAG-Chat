@@ -16,6 +16,7 @@ export function useChatMessages({ chatId }: UseChatMessagesParams) {
     sources: ChatMessageSource[];
     createdDocument?: { id: string; title: string; content: string } | null;
     updatedDocument?: { id: string; title: string; content: string } | null;
+    deletedDocument?: { id: string; title: string } | null;
   } | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function useChatMessages({ chatId }: UseChatMessagesParams) {
               sources: sources || [],
               createdDocument: prev?.createdDocument,
               updatedDocument: prev?.updatedDocument,
+              deletedDocument: prev?.deletedDocument,
             }));
           },
           onChunk: (chunk) => {
@@ -73,6 +75,7 @@ export function useChatMessages({ chatId }: UseChatMessagesParams) {
               sources: prev?.sources || [],
               createdDocument: prev?.createdDocument,
               updatedDocument: prev?.updatedDocument,
+              deletedDocument: prev?.deletedDocument,
               content: (prev?.content || "") + chunk,
             }));
           },
@@ -103,6 +106,18 @@ export function useChatMessages({ chatId }: UseChatMessagesParams) {
                 sources: prev?.sources || [],
                 updatedDocument: toolCall.document,
                 createdDocument: null,
+                deletedDocument: null,
+              }));
+
+              queryClient.invalidateQueries({ queryKey: ["documents"] });
+              queryClient.invalidateQueries({ queryKey: ["graph"] });
+            } else if (toolCall.tool === "deleteDocument") {
+              setStreamingMessage((prev) => ({
+                content: prev?.content || "",
+                sources: prev?.sources || [],
+                deletedDocument: toolCall.document,
+                createdDocument: null,
+                updatedDocument: null,
               }));
 
               queryClient.invalidateQueries({ queryKey: ["documents"] });

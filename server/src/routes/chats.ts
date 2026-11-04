@@ -8,7 +8,11 @@ import {
   getEmbedding,
   shouldRetrieveContext,
 } from "../services/ai.js";
-import { executeCreateDocument, executeUpdateDocument } from "../services/tools.js";
+import {
+  executeCreateDocument,
+  executeDeleteDocument,
+  executeUpdateDocument,
+} from "../services/tools.js";
 
 export async function chatsRoutes(app: FastifyInstance) {
 	app.addHook('onRequest', app.authenticate);
@@ -139,6 +143,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 			let fullAiResponse = '';
 			let createdDoc: any = null;
 			let updatedDoc: any = null;
+			let deletedDoc: any = null;
 
 			for await (const chunk of stream) {
 				// 1. Проверяем, решила ли модель вызвать инструмент
@@ -193,6 +198,30 @@ export async function chatsRoutes(app: FastifyInstance) {
 							fullAiResponse += textChunk;
 							reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
 						}
+					} else if (call.name === 'deleteDocument') {
+						// Удаление заметки
+						deletedDoc = await executeDeleteDocument(
+							request.user.id,
+							call.args as { id?: string; title?: string }
+						);
+						reply.raw.write(
+							`data: ${JSON.stringify({
+								type: 'tool_call',
+								tool: 'deleteDocument',
+								document: deletedDoc,
+							})}\n\n`
+						);
+						const followUpStream = await generateToolFollowUpStream(
+							message,
+							chunk.candidates?.[0]?.content,
+							call.name,
+							{ success: true, document: deletedDoc }
+						);
+						for await (const followChunk of followUpStream) {
+							const textChunk = followChunk.text || '';
+							fullAiResponse += textChunk;
+							reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text: textChunk })}\n\n`);
+						}
 					}
 				} else {
 					// 2. Обычный текстовый ответ (диалог или RAG)
@@ -208,6 +237,9 @@ export async function chatsRoutes(app: FastifyInstance) {
 			}
 			if (updatedDoc) {
 				messageSources.push({ ...updatedDoc, isUpdated: true });
+			}
+			if (deletedDoc) {
+				messageSources.push({ ...deletedDoc, isDeleted: true });
 			}
 
 			await query('INSERT INTO messages (chat_id, role, content, sources) VALUES ($1, $2, $3, $4)', [

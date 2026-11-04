@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { createDocumentTool, updateDocumentTool } from "./tools.js";
+import { createDocumentTool, deleteDocumentTool, updateDocumentTool } from "./tools.js";
 
 export const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY})
 
@@ -30,10 +30,13 @@ export async function generateRAGStream(
   if (!isContextRetrieved) {
     systemInstruction += ` Отвечай естественно и вежливо. 
 Если пользователь явно просит сохранить или создать новую заметку/документ — используй инструмент createDocument.
-Если пользователь просит дополнить, изменить или обновить существующую заметку — используй инструмент updateDocument.`;
+Если пользователь просит дополнить, изменить или обновить существующую заметку — используй инструмент updateDocument.
+Если пользователь просит удалить или стереть заметку — используй инструмент deleteDocument.`;
   } else if (contextDocuments.length === 0) {
     systemInstruction += ` Пользователь задал предметный вопрос, но в его базе заметок ничего подходящего не нашлось. Ответь на основе своих общих знаний, но в начале кратко предупреди, что в личных заметках информации нет.
-Если просят создать новую заметку — используй createDocument. Если просят изменить/дополнить — используй updateDocument.`;
+Если просят создать новую заметку — используй createDocument. 
+Если просят изменить/дополнить — используй updateDocument.
+Если просят удалить — используй deleteDocument.`;
   } else {
     const contextText = contextDocuments
       .map((doc, i) => `[Документ ${i + 1}] (ID: ${doc.id || 'unknown'}) "${doc.title}":\n${doc.content}`)
@@ -46,7 +49,8 @@ export async function generateRAGStream(
 ${contextText}
 
 Если пользователь просит создать или сохранить новую заметку — используй инструмент createDocument.
-Если пользователь просит дополнить, изменить или обновить существующую заметку — используй инструмент updateDocument (передавай ID из контекста, если он там указан).`;
+Если пользователь просит дополнить, изменить или обновить существующую заметку — используй инструмент updateDocument (передавай ID из контекста, если он там указан).
+Если пользователь просит удалить или стереть заметку — используй инструмент deleteDocument (передавай ID из контекста, если он там указан).`;
   }
 
   // Запускаем стриминг с поддержкой инструментов
@@ -59,7 +63,7 @@ ${contextText}
       },
     ],
     config: {
-      tools: [{ functionDeclarations: [createDocumentTool, updateDocumentTool] }],
+      tools: [{ functionDeclarations: [createDocumentTool, updateDocumentTool, deleteDocumentTool] }],
     },
   });
 
@@ -94,7 +98,7 @@ export async function generateToolFollowUpStream(
       },
     ],
     config: {
-      tools: [{ functionDeclarations: [createDocumentTool, updateDocumentTool] }],
+      tools: [{ functionDeclarations: [createDocumentTool, updateDocumentTool, deleteDocumentTool] }],
     },
   });
 }

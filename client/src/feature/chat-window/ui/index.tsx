@@ -149,7 +149,8 @@ export function ChatWindow({ className }: ChatWindowProps) {
 
               const createdSource = msg.sources?.find((s) => s.isCreated);
               const updatedSource = msg.sources?.find((s) => s.isUpdated);
-              const ragSources = msg.sources?.filter((s) => !s.isCreated && !s.isUpdated);
+              const deletedSource = msg.sources?.find((s) => s.isDeleted);
+              const ragSources = msg.sources?.filter((s) => !s.isCreated && !s.isUpdated && !s.isDeleted);
 
               return (
                 <div key={msg.id} className="flex items-start gap-3 max-w-[85%]">
@@ -162,6 +163,9 @@ export function ChatWindow({ className }: ChatWindowProps) {
                     )}
                     {updatedSource && (
                       <CreatedDocumentCard document={updatedSource} variant="updated" />
+                    )}
+                    {deletedSource && (
+                      <CreatedDocumentCard document={deletedSource} variant="deleted" />
                     )}
                     <div className="rounded-2xl rounded-tl-xs border border-border bg-card px-4 py-3 text-sm text-card-foreground shadow-xs leading-relaxed whitespace-pre-wrap">
                       {msg.content}
@@ -186,6 +190,9 @@ export function ChatWindow({ className }: ChatWindowProps) {
                   )}
                   {streamingMessage.updatedDocument && (
                     <CreatedDocumentCard document={streamingMessage.updatedDocument} variant="updated" />
+                  )}
+                  {streamingMessage.deletedDocument && (
+                    <CreatedDocumentCard document={streamingMessage.deletedDocument} variant="deleted" />
                   )}
                   <div className="rounded-2xl rounded-tl-xs border border-border bg-card px-4 py-3 text-sm text-card-foreground shadow-xs leading-relaxed whitespace-pre-wrap">
                     {streamingMessage.content ? (
