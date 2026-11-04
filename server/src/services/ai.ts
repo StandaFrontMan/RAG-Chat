@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { createDocumentTool } from "./tools.js";
 
 export const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY})
 
@@ -20,20 +21,17 @@ export async function getEmbedding(text: string): Promise<number[]> {
 }
 
 export async function generateRAGStream(
-	userQuery: string,
-	contextDocuments: {title: string, content: string}[],
-	isContextRetrieved: boolean = true
+  userQuery: string,
+  contextDocuments: { title: string; content: string }[],
+  isContextRetrieved: boolean = true
 ) {
-	let systemInstruction = 'Ты персональный AI-ассистент пользователя.'
+  let systemInstruction = 'Ты персональный AI-ассистент пользователя.';
 
-	if(!isContextRetrieved) {
-		// Сценарий 1: Smalltalk / общение без базы знаний
-    systemInstruction += `Отвечай кратко, естественно и вежливо на общие темы или приветствия. Не упоминай базу знаний или заметки, если пользователь сам прямо о них не спрашивает.`;
-	} else if (contextDocuments.length === 0) {
-		// Сценарий 2: Поиск был, но ничего не найдено
-    systemInstruction += `Пользователь задал предметный вопрос, но в его базе заметок ничего подходящего не нашлось. Ответь на основе своих общих знаний, но в начале кратко предупреди, что в личных заметках информации по этому поводу нет.`;
-	} else {
-		// Сценарий 3: Документы найдены
+  if (!isContextRetrieved) {
+    systemInstruction += ` Отвечай естественно и вежливо. Если пользователь явно просит сохранить, записать, запомнить или добавить заметку/документ — обязательно используй инструмент createDocument.`;
+  } else if (contextDocuments.length === 0) {
+    systemInstruction += ` Пользователь задал предметный вопрос, но в его базе заметок ничего подходящего не нашлось. Ответь на основе своих общих знаний, но в начале кратко предупреди, что в личных заметках информации нет. Если просят что-то сохранить — используй инструмент createDocument.`;
+  } else {
     const contextText = contextDocuments
       .map((doc, i) => `[Документ ${i + 1}] "${doc.title}":\n${doc.content}`)
       .join('\n\n');
@@ -41,20 +39,58 @@ export async function generateRAGStream(
     systemInstruction += `
 			Опирайся в первую очередь на предоставленный контекст из заметок пользователя.
 			Обязательно упомяни название документа или процитируй важные детали.
-			КОНТЕКСТ: ${contextText}`;
-	}
-		
-	// 3. Запускаем стриминг
-	const responseStream = await ai.models.generateContentStream({
-		model: 'gemini-3.1-flash-lite',
+			КОНТЕКСТ:
+			${contextText}
+			Если пользователь просит создать или сохранить новую заметку — используй инструмент createDocument.`;
+  	}
+	
+  // Запускаем стриминг с поддержкой инструментов
+  const responseStream = await ai.models.generateContentStream({
+    model: 'gemini-3.1-flash-lite',
     contents: [
-      { role: 'user', parts: [{ text: `${systemInstruction}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ:\n${userQuery}` }] }
-    ]
-	})
+      {
+        role: 'user',
+        parts: [{ text: `${systemInstruction}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ:\n${userQuery}` }],
+      },
+    ],
+    config: {
+      tools: [{ functionDeclarations: [createDocumentTool] }],
+    },
+  });
 
-	return responseStream;
+  return responseStream;
 }
 
+
+/**
+ * Отправляет результат выполнения инструмента назад в Gemini, 
+ * чтобы модель сгенерировала финальный вежливый ответ для пользователя.
+ */
+export async function generateToolFollowUpStream(
+  userQuery: string,
+  modelContent: any,
+  toolCallName: string,
+  toolResult: any
+) {
+  return await ai.models.generateContentStream({
+    model: 'gemini-3.1-flash-lite',
+    contents: [
+      { role: 'user', parts: [{ text: userQuery }] },
+      modelContent,
+      {
+        role: 'tool',
+        parts: [
+          {
+            functionResponse: {
+              name: toolCallName,
+              response: { output: toolResult },
+            },
+          },
+        ],
+      },
+    ],
+  });
+}
 
 /**
  * Context Awareness Gate (CAG)
