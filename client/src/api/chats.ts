@@ -97,6 +97,7 @@ export async function sendChatMessageStream(
     onChunk?: (chunk: string) => void;
     onDone?: () => void;
     onError?: (error: Error) => void;
+		onToolCall?: (toolCall: { tool: string; document: any }) => void;
   },
   signal?: AbortSignal
 ): Promise<void> {
@@ -144,7 +145,12 @@ export async function sendChatMessageStream(
             callbacks.onChunk?.(payload.text);
           } else if (payload.type === "done") {
             callbacks.onDone?.();
-          }
+          } else if (payload.type === 'tool_call') {
+						callbacks.onToolCall?.({
+							tool: payload.tool,
+							document: payload.document,
+						})
+					}
         } catch (e) {
           console.error("Failed to parse SSE payload", jsonStr, e);
         }

@@ -137,6 +137,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 			reply.raw.write(`data: ${JSON.stringify({ type: 'sources', sources: relevantDocs })}\n\n`);
 
 			let fullAiResponse = '';
+			let createdDoc: any = null;
 
 			for await (const chunk of stream) {
 				// 1. Проверяем, решила ли модель вызвать инструмент
@@ -144,7 +145,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 					const call = chunk.functionCalls[0];
 					if (call.name === 'createDocument') {
 						// Исполняем создание заметки в PostgreSQL
-						const createdDoc = await executeCreateDocument(
+						createdDoc = await executeCreateDocument(
 							request.user.id,
 							call.args as { title?: string; content?: string }
 						);
@@ -177,11 +178,15 @@ export async function chatsRoutes(app: FastifyInstance) {
 				}
 			}
 
+			const messageSources = createdDoc
+				? [...relevantDocs, { ...createdDoc, isCreated: true }]
+				: relevantDocs;
+
 			await query('INSERT INTO messages (chat_id, role, content, sources) VALUES ($1, $2, $3, $4)', [
     		chatId,
     		'assistant',
     		fullAiResponse,
-    		JSON.stringify(relevantDocs)
+    		JSON.stringify(messageSources)
   		]);
 
 			reply.raw.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
