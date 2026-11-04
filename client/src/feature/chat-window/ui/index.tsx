@@ -15,6 +15,7 @@ import { Button } from "../../../components/ui/button";
 import type { ChatWindowProps } from "../model/types";
 import { useChatWindowViewModel } from "../view-model/useChatWindowViewModel";
 import { MessageSources } from "./message-sources";
+import { CreatedDocumentCard } from "./created-document-card";
 
 export function ChatWindow({ className }: ChatWindowProps) {
   const {
@@ -146,17 +147,23 @@ export function ChatWindow({ className }: ChatWindowProps) {
                 );
               }
 
+              const createdSource = msg.sources?.find((s) => s.isCreated);
+              const ragSources = msg.sources?.filter((s) => !s.isCreated);
+
               return (
                 <div key={msg.id} className="flex items-start gap-3 max-w-[85%]">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary mt-1 shadow-2xs">
                     <Bot className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
+                    {createdSource && (
+                      <CreatedDocumentCard document={createdSource} />
+                    )}
                     <div className="rounded-2xl rounded-tl-xs border border-border bg-card px-4 py-3 text-sm text-card-foreground shadow-xs leading-relaxed whitespace-pre-wrap">
                       {msg.content}
                     </div>
-                    {msg.sources && msg.sources.length > 0 && (
-                      <MessageSources sources={msg.sources} />
+                    {ragSources && ragSources.length > 0 && (
+                      <MessageSources sources={ragSources} />
                     )}
                   </div>
                 </div>
@@ -170,6 +177,9 @@ export function ChatWindow({ className }: ChatWindowProps) {
                   <Bot className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0">
+                  {streamingMessage.createdDocument && (
+                    <CreatedDocumentCard document={streamingMessage.createdDocument} />
+                  )}
                   <div className="rounded-2xl rounded-tl-xs border border-border bg-card px-4 py-3 text-sm text-card-foreground shadow-xs leading-relaxed whitespace-pre-wrap">
                     {streamingMessage.content ? (
                       <>
@@ -179,7 +189,7 @@ export function ChatWindow({ className }: ChatWindowProps) {
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground text-xs">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        <span>Поиск по базе знаний и формирование ответа...</span>
+                        <span>Обработка запроса...</span>
                       </div>
                     )}
                   </div>

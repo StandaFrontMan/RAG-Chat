@@ -10,6 +10,7 @@ export interface ChatMessageSource {
   title: string;
   content: string;
   similarity?: number;
+  isCreated?: boolean;
 }
 
 export interface ChatMessage {
